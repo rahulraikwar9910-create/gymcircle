@@ -19,6 +19,8 @@ async def init_db():
 
     async with AsyncSessionLocal() as db:
         from sqlalchemy import select
+
+        # Seed Gym Owner
         res = await db.execute(select(User).where(User.email == "owner_a@gymcircle.com"))
         user = res.scalar_one_or_none()
         if not user:
@@ -33,9 +35,36 @@ async def init_db():
             )
             await auth_service.register_owner_and_gym(db, reg_data)
             await db.commit()
-            print("Seeding completed successfully!")
+            print("Gym owner seeded successfully!")
         else:
             print("Default owner already exists.")
+
+        # Seed Super Admin
+        sa_res = await db.execute(select(User).where(User.email == "superadmin@gymcircle.com"))
+        sa_user = sa_res.scalar_one_or_none()
+        if not sa_user:
+            print("Seeding Super Admin...")
+            from app.core.security import get_password_hash
+            sa = User(
+                email="superadmin@gymcircle.com",
+                hashed_password=get_password_hash("admin123"),
+                first_name="Super",
+                last_name="Admin",
+                is_active=True
+            )
+            db.add(sa)
+            await db.flush()
+            sa_role = UserGymRole(
+                user_id=sa.id,
+                gym_id=None,
+                role="SUPER_ADMIN",
+                is_active=True
+            )
+            db.add(sa_role)
+            await db.commit()
+            print("Super Admin seeded successfully!")
+        else:
+            print("Super Admin already exists.")
 
 if __name__ == "__main__":
     asyncio.run(init_db())
