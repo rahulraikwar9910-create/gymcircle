@@ -100,3 +100,4 @@ function cleanSlug(){const el=document.getElementById('gslug');el.value=el.value
 </script>
 
 <?php require_once __DIR__ . '/../layout/footer.php'; ?>
+

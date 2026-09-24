@@ -7,3 +7,4 @@ if (gethostbyname('backend') !== 'backend') {
     // Change port below if needed (default: 8002)
     define('API_BASE_URL', 'http://localhost:8002/api/v1');
 }
+

@@ -104,3 +104,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_action']) && $_POST[
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/../layout/footer.php'; ?>
+

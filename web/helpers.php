@@ -50,7 +50,7 @@ function api_request(string $method, string $endpoint, $data = null) {
 
 function require_login() {
     if (!isset($_SESSION['access_token'])) {
-        header('Location: index.php');
+        header('Location: /login.php');
         exit;
     }
 }
@@ -76,3 +76,4 @@ function require_roles(array $allowed_roles) {
         exit;
     }
 }
+

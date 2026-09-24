@@ -78,3 +78,4 @@ $total_debit  = array_sum(array_column(array_filter($fees, fn($f) => ($f['entry_
 </div>
 
 <?php require_once __DIR__ . '/../layout/footer.php'; ?>
+

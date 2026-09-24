@@ -195,3 +195,4 @@ function updatePreview(slug) {
     'localhost:8080/public/gym.php?slug=' + (slug || '...');
 }
 </script>
+

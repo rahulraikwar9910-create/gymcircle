@@ -53,3 +53,4 @@ $gyms = array_values($gyms_res['data'] ?? []);
 </div>
 
 <?php require_once __DIR__ . '/../layout/footer.php'; ?>
+

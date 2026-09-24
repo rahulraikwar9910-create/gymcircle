@@ -77,3 +77,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['checkin_email'])) {
 </div>
 
 <?php require_once __DIR__ . '/../layout/footer.php'; ?>
+

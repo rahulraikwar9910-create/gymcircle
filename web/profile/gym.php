@@ -221,3 +221,4 @@ $public_url = 'http://localhost:8080/public/gym.php?slug=' . urlencode($gym_slug
 </div>
 
 <?php require_once __DIR__ . '/../layout/footer.php'; ?>
+
