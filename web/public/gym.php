@@ -2,106 +2,86 @@
 // Public gym showcase page — no login required
 require_once __DIR__ . '/../helpers.php';
 
-$slug = trim($_GET['slug'] ?? '');
-if (!$slug) {
-    http_response_code(404);
-    echo "<!DOCTYPE html><html><body style='text-align:center;padding:80px;font-family:sans-serif'><h2 style='color:#6366f1'>GymCircle</h2><p>Gym not found. Please check the link.</p></body></html>";
-    exit;
-}
+$slug       = preg_replace('/[^a-z0-9\-]/', '', strtolower(trim($_GET['slug'] ?? '')));
+$upload_dir = __DIR__ . '/../uploads/' . $slug . '/';
+$cache_file = $upload_dir . 'gym_meta.json';
 
-// Use a temp token-less approach: find gym via slug by checking all gyms
-// First: try the by-slug endpoint
-$gym = null; $gym_id = null; $plans = []; $images = [];
-
-// Try fetching gym by slug from public API if exists
-// Fallback: use a simple file cache for gym_id lookup
-$cache_file = __DIR__ . '/../uploads/' . preg_replace('/[^a-z0-9\-]/', '', $slug) . '/gym_meta.json';
-
+// Try reading from gym_meta.json cache (written when owner visits Gym Settings)
+$gym_id = null;
 if (file_exists($cache_file)) {
     $meta   = json_decode(file_get_contents($cache_file), true);
     $gym_id = $meta['gym_id'] ?? null;
 }
 
-// If no cache, try fetching from admin API (works if super admin token in session)
-if (!$gym_id) {
-    // Login as super admin to get token for public lookup
-    $login = api_request('POST', '/auth/login', [
-        'email'    => 'superadmin@gymcircle.com',
-        'password' => 'admin123'
-    ]);
-    if ($login['status'] === 200) {
-        $sa_token = $login['data']['access_token'] ?? null;
-        if ($sa_token) {
-            // Temporarily override session token
-            $orig_token = $_SESSION['access_token'] ?? null;
-            $orig_gym   = $_SESSION['gym_id'] ?? null;
-            $_SESSION['access_token'] = $sa_token;
-            unset($_SESSION['gym_id']);
+// If no cache — fallback: auto-login as super admin and fetch
+if (!$gym_id && $slug) {
+    $login = api_request('POST', '/auth/login', ['email' => 'superadmin@gymcircle.com', 'password' => 'admin123']);
+    if (!empty($login['data']['access_token'])) {
+        $old_token = $_SESSION['access_token'] ?? null;
+        $old_gym   = $_SESSION['gym_id'] ?? null;
+        $_SESSION['access_token'] = $login['data']['access_token'];
+        unset($_SESSION['gym_id']);
 
-            $all_gyms_res = api_request('GET', '/admin/gyms');
-            $all_gyms     = $all_gyms_res['data'] ?? [];
-
-            foreach ($all_gyms as $g) {
-                if (($g['slug'] ?? '') === $slug) {
-                    $gym_id = $g['gym_id'] ?? null;
-                    break;
-                }
+        $all = api_request('GET', '/admin/gyms');
+        foreach (($all['data'] ?? []) as $g) {
+            if (($g['slug'] ?? '') === $slug) {
+                $gym_id = $g['gym_id'] ?? null;
+                break;
             }
+        }
+        // Restore session
+        $old_token ? ($_SESSION['access_token'] = $old_token) : unset($_SESSION['access_token']);
+        $old_gym   ? ($_SESSION['gym_id']        = $old_gym)   : unset($_SESSION['gym_id']);
 
-            // Restore session
-            if ($orig_token) $_SESSION['access_token'] = $orig_token;
-            else             unset($_SESSION['access_token']);
-            if ($orig_gym)   $_SESSION['gym_id'] = $orig_gym;
-
-            // Cache for next time
-            if ($gym_id) {
-                $dir = __DIR__ . '/../uploads/' . preg_replace('/[^a-z0-9\-]/', '', $slug) . '/';
-                if (!is_dir($dir)) mkdir($dir, 0755, true);
-                file_put_contents($dir . 'gym_meta.json', json_encode(['gym_id' => $gym_id]));
-            }
+        // Write cache so next time it's instant
+        if ($gym_id) {
+            if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+            file_put_contents($cache_file, json_encode(['gym_id' => $gym_id, 'slug' => $slug]));
         }
     }
 }
 
 if (!$gym_id) {
-    http_response_code(404);
-    echo "<!DOCTYPE html><html><body style='text-align:center;padding:80px;font-family:sans-serif'><h2 style='color:#6366f1'>GymCircle</h2><p>Gym \"" . htmlspecialchars($slug) . "\" not found.</p><p style='color:#94a3b8'>Make sure the gym has been registered.</p></body></html>";
-    exit;
-}
+    http_response_code(404); ?>
+<!DOCTYPE html><html><head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-gray-50 flex items-center justify-center min-h-screen">
+  <div class="text-center p-10">
+    <h1 class="text-4xl font-bold text-indigo-600 mb-3">GymCircle</h1>
+    <p class="text-gray-600 text-lg">Gym <strong><?= htmlspecialchars($slug) ?></strong> not found.</p>
+    <p class="text-gray-400 mt-2 text-sm">Ask the gym owner to visit <strong>Gym Settings</strong> once to activate their public page.</p>
+  </div>
+</body></html>
+<?php exit; }
 
-// Fetch full gym details
+// Fetch gym data
 $gym_res = api_request('GET', '/gyms/' . $gym_id);
 $gym     = $gym_res['data'] ?? [];
 
-// Fetch plans — set gym_id in session temporarily
-$orig_gym          = $_SESSION['gym_id'] ?? null;
+// Fetch plans
+$old_gym = $_SESSION['gym_id'] ?? null;
 $_SESSION['gym_id'] = $gym_id;
-$plans_res          = api_request('GET', '/memberships/plans');
-$plans              = $plans_res['data'] ?? [];
-if ($orig_gym) $_SESSION['gym_id'] = $orig_gym;
-else           unset($_SESSION['gym_id']);
+$plans = api_request('GET', '/memberships/plans')['data'] ?? [];
+$old_gym ? ($_SESSION['gym_id'] = $old_gym) : unset($_SESSION['gym_id']);
 
-// Load gym images
-$clean_slug = preg_replace('/[^a-z0-9\-]/', '', $slug);
-$upload_dir = __DIR__ . '/../uploads/' . $clean_slug . '/';
-$images     = [];
+// Load images
+$images = [];
 if (is_dir($upload_dir)) {
-    foreach (glob($upload_dir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE) as $img) {
-        $images[] = basename($img);
+    foreach (glob($upload_dir . '*.{jpg,jpeg,png,webp}', GLOB_BRACE) as $f) {
+        $images[] = basename($f);
     }
 }
 
-function dur_label(int $days): string {
-    if ($days <= 31)  return 'Monthly';
-    if ($days <= 92)  return 'Quarterly';
-    if ($days <= 185) return 'Half-Yearly';
-    if ($days >= 360) return 'Yearly';
-    return $days . ' days';
+function dur_label(int $d): string {
+    if ($d <= 31)  return 'Monthly';
+    if ($d <= 92)  return 'Quarterly';
+    if ($d <= 185) return 'Half-Yearly';
+    if ($d >= 360) return 'Yearly';
+    return $d . ' days';
 }
-function dur_color(int $days): string {
-    if ($days <= 31)  return '#3b82f6';
-    if ($days <= 92)  return '#22c55e';
-    if ($days <= 185) return '#f97316';
+function dur_color(int $d): string {
+    if ($d <= 31)  return '#3b82f6';
+    if ($d <= 92)  return '#22c55e';
+    if ($d <= 185) return '#f97316';
     return '#a855f7';
 }
 ?>
@@ -114,40 +94,32 @@ function dur_color(int $days): string {
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
-    .hero-gradient{background:linear-gradient(135deg,#312e81 0%,#4f46e5 50%,#7c3aed 100%)}
-    .plan-card{transition:transform .2s ease,box-shadow .2s ease}
-    .plan-card:hover{transform:translateY(-5px);box-shadow:0 20px 40px rgba(99,102,241,.15)}
+    .hero{background:linear-gradient(135deg,#312e81,#4f46e5,#7c3aed)}
+    .card{transition:transform .2s,box-shadow .2s}.card:hover{transform:translateY(-5px);box-shadow:0 20px 40px rgba(99,102,241,.15)}
   </style>
 </head>
 <body class="bg-gray-50">
 
 <!-- Hero -->
-<div class="hero-gradient text-white">
+<div class="hero text-white">
   <div class="max-w-5xl mx-auto px-6 py-16 text-center">
-    <div class="inline-flex items-center gap-2 bg-white bg-opacity-20 rounded-full px-4 py-1.5 text-xs font-semibold mb-5">
+    <div class="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-1.5 text-xs font-semibold mb-5">
       <i class="fa fa-dumbbell"></i> GymCircle Partner Gym
     </div>
     <h1 class="text-5xl font-extrabold mb-3"><?= htmlspecialchars($gym['name'] ?? '') ?></h1>
     <?php $addr = implode(', ', array_filter([$gym['address']??null,$gym['city']??null,$gym['state']??null])); ?>
-    <?php if ($addr): ?>
-      <p class="text-indigo-200 text-lg mt-2"><i class="fa fa-location-dot mr-1"></i><?= htmlspecialchars($addr) ?></p>
-    <?php endif; ?>
-    <div class="flex justify-center gap-6 mt-5 flex-wrap">
-      <?php if (!empty($gym['phone'])): ?>
-        <span class="text-indigo-200 text-sm"><i class="fa fa-phone mr-1"></i><?= htmlspecialchars($gym['phone']) ?></span>
-      <?php endif; ?>
-      <?php if (!empty($gym['email'])): ?>
-        <span class="text-indigo-200 text-sm"><i class="fa fa-envelope mr-1"></i><?= htmlspecialchars($gym['email']) ?></span>
-      <?php endif; ?>
+    <?php if ($addr): ?><p class="text-indigo-200 text-lg mt-1"><i class="fa fa-location-dot mr-1"></i><?= htmlspecialchars($addr) ?></p><?php endif; ?>
+    <div class="flex justify-center gap-6 mt-5 flex-wrap text-indigo-200 text-sm">
+      <?php if (!empty($gym['phone'])): ?><span><i class="fa fa-phone mr-1"></i><?= htmlspecialchars($gym['phone']) ?></span><?php endif; ?>
+      <?php if (!empty($gym['email'])): ?><span><i class="fa fa-envelope mr-1"></i><?= htmlspecialchars($gym['email']) ?></span><?php endif; ?>
     </div>
-    <a href="#plans"
-       class="inline-block mt-8 bg-white text-indigo-700 font-bold px-8 py-3 rounded-full text-sm hover:bg-indigo-50 transition shadow-lg">
+    <a href="#plans" class="inline-block mt-8 bg-white text-indigo-700 font-bold px-8 py-3 rounded-full text-sm hover:bg-indigo-50 shadow-lg transition">
       View Plans &amp; Join <i class="fa fa-arrow-down ml-1"></i>
     </a>
   </div>
 </div>
 
-<!-- Stats -->
+<!-- Stats Bar -->
 <div class="bg-white border-b shadow-sm">
   <div class="max-w-5xl mx-auto px-6 py-5 grid grid-cols-3 gap-4 text-center">
     <div><p class="text-2xl font-bold text-indigo-600"><?= count($plans) ?></p><p class="text-sm text-gray-500">Membership Plans</p></div>
@@ -165,9 +137,8 @@ function dur_color(int $days): string {
     <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
       <?php foreach ($images as $img): ?>
         <div class="rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition cursor-pointer"
-             onclick="openLightbox('/uploads/<?= $clean_slug ?>/<?= urlencode($img) ?>')">
-          <img src="/uploads/<?= $clean_slug ?>/<?= urlencode($img) ?>"
-               alt="<?= htmlspecialchars($img) ?>"
+             onclick="openLB('/uploads/<?= $slug ?>/<?= urlencode($img) ?>')">
+          <img src="/uploads/<?= $slug ?>/<?= urlencode($img) ?>" alt="Gym Photo"
                class="w-full h-52 object-cover hover:scale-105 transition duration-300">
         </div>
       <?php endforeach; ?>
@@ -181,52 +152,43 @@ function dur_color(int $days): string {
     <p class="text-gray-500 text-center text-sm mb-8">Flexible plans for every fitness goal. Join today!</p>
 
     <?php if (empty($plans)): ?>
-      <div class="bg-white rounded-2xl p-12 text-center text-gray-400 shadow-sm">
-        No plans yet — contact the gym directly.
-      </div>
+      <div class="bg-white rounded-2xl p-12 text-center text-gray-400 shadow-sm">No plans yet — contact the gym directly.</div>
     <?php else: ?>
-      <div class="grid grid-cols-1 md:grid-cols-<?= min(count($plans), 3) ?> gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-<?= min(count($plans),3) ?> gap-6">
         <?php foreach ($plans as $idx => $p):
-          $days    = (int)($p['duration_days'] ?? 30);
-          $label   = dur_label($days);
-          $color   = dur_color($days);
-          $pm      = $days > 0 ? round((float)$p['price'] / ($days / 30), 0) : 0;
-          $popular = $idx === 1 && count($plans) >= 3;
+          $d = (int)($p['duration_days']??30);
+          $lbl = dur_label($d); $clr = dur_color($d);
+          $pm  = $d > 0 ? round((float)$p['price']/($d/30),0) : 0;
+          $pop = $idx===1 && count($plans)>=3;
         ?>
-        <div class="plan-card bg-white rounded-2xl shadow-sm border-2 <?= $popular ? 'border-indigo-500 relative' : 'border-gray-100' ?> overflow-hidden">
-          <?php if ($popular): ?>
-            <div class="absolute top-0 inset-x-0 bg-indigo-600 text-white text-xs font-bold text-center py-1">⭐ MOST POPULAR</div>
-          <?php endif; ?>
-          <div class="p-6 <?= $popular ? 'pt-8' : '' ?>">
-            <span class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold text-white mb-4"
-                  style="background:<?= $color ?>">
-              <i class="fa fa-calendar"></i> <?= $label ?>
+        <div class="card bg-white rounded-2xl shadow-sm border-2 <?= $pop?'border-indigo-500 relative':'border-gray-100' ?> overflow-hidden">
+          <?php if ($pop): ?><div class="absolute inset-x-0 top-0 bg-indigo-600 text-white text-xs font-bold text-center py-1">⭐ MOST POPULAR</div><?php endif; ?>
+          <div class="p-6 <?= $pop?'pt-8':'' ?>">
+            <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-white mb-4" style="background:<?= $clr ?>">
+              <i class="fa fa-calendar"></i> <?= $lbl ?>
             </span>
             <h3 class="text-xl font-bold text-gray-800 mb-1"><?= htmlspecialchars($p['name']) ?></h3>
-            <?php if (!empty($p['description'])): ?>
-              <p class="text-gray-500 text-sm mb-3"><?= htmlspecialchars($p['description']) ?></p>
-            <?php endif; ?>
+            <?php if (!empty($p['description'])): ?><p class="text-gray-500 text-sm mb-3"><?= htmlspecialchars($p['description']) ?></p><?php endif; ?>
             <div class="my-4">
               <div class="flex items-baseline gap-1">
-                <span class="text-4xl font-extrabold text-gray-900">₹<?= number_format((float)$p['price'], 0) ?></span>
-                <span class="text-gray-400 text-sm">/ <?= $days ?> days</span>
+                <span class="text-4xl font-extrabold text-gray-900">₹<?= number_format((float)$p['price'],0) ?></span>
+                <span class="text-gray-400 text-sm">/ <?= $d ?> days</span>
               </div>
-              <p class="text-sm text-gray-400 mt-0.5">≈ ₹<?= number_format($pm, 0) ?>/month</p>
+              <p class="text-sm text-gray-400 mt-0.5">≈ ₹<?= number_format($pm,0) ?>/month</p>
             </div>
             <ul class="space-y-2 mb-5 text-sm text-gray-600">
-              <li><i class="fa fa-check-circle text-green-500 mr-2"></i><?= $days ?> days access</li>
+              <li><i class="fa fa-check-circle text-green-500 mr-2"></i><?= $d ?> days access</li>
               <?php if (!empty($p['max_sessions'])): ?>
-                <li><i class="fa fa-check-circle text-green-500 mr-2"></i><?= $p['max_sessions'] ?> sessions</li>
+              <li><i class="fa fa-check-circle text-green-500 mr-2"></i><?= $p['max_sessions'] ?> sessions</li>
               <?php else: ?>
-                <li><i class="fa fa-check-circle text-green-500 mr-2"></i>Unlimited sessions</li>
+              <li><i class="fa fa-check-circle text-green-500 mr-2"></i>Unlimited sessions</li>
               <?php endif; ?>
               <li><i class="fa fa-check-circle text-green-500 mr-2"></i>All equipment access</li>
-              <li><i class="fa fa-check-circle text-green-500 mr-2"></i>Expert trainer guidance</li>
+              <li><i class="fa fa-check-circle text-green-500 mr-2"></i>Trainer guidance</li>
             </ul>
-            <button onclick="showModal('<?= htmlspecialchars(addslashes($p['name'])) ?>','<?= number_format((float)$p['price'],0) ?>','<?= $label ?>')"
-                    class="w-full py-3 rounded-xl font-bold text-sm transition
-                           <?= $popular ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-gray-100 hover:bg-indigo-600 hover:text-white text-gray-800' ?>">
-              Join Now — ₹<?= number_format((float)$p['price'], 0) ?>
+            <button onclick="showModal('<?= htmlspecialchars(addslashes($p['name'])) ?>','<?= number_format((float)$p['price'],0) ?>','<?= $lbl ?>')"
+                    class="w-full py-3 rounded-xl font-bold text-sm transition <?= $pop?'bg-indigo-600 hover:bg-indigo-700 text-white':'bg-gray-100 hover:bg-indigo-600 hover:text-white text-gray-800' ?>">
+              Join Now — ₹<?= number_format((float)$p['price'],0) ?>
             </button>
           </div>
         </div>
@@ -235,78 +197,60 @@ function dur_color(int $days): string {
     <?php endif; ?>
   </div>
 
-  <!-- Contact CTA -->
+  <!-- CTA -->
   <div class="mt-12 bg-indigo-600 rounded-2xl p-8 text-white text-center">
     <h3 class="text-2xl font-bold mb-2">Ready to Start Your Fitness Journey?</h3>
     <p class="text-indigo-200 mb-6">Contact us today or visit the gym directly.</p>
     <div class="flex justify-center gap-4 flex-wrap">
       <?php if (!empty($gym['phone'])): ?>
-        <a href="tel:<?= htmlspecialchars($gym['phone']) ?>"
-           class="bg-white text-indigo-700 font-bold px-6 py-3 rounded-full text-sm hover:bg-indigo-50 transition">
+        <a href="tel:<?= htmlspecialchars($gym['phone']) ?>" class="bg-white text-indigo-700 font-bold px-6 py-3 rounded-full text-sm hover:bg-indigo-50 transition">
           <i class="fa fa-phone mr-2"></i><?= htmlspecialchars($gym['phone']) ?>
         </a>
       <?php endif; ?>
       <?php if (!empty($gym['email'])): ?>
-        <a href="mailto:<?= htmlspecialchars($gym['email']) ?>"
-           class="border-2 border-white text-white font-bold px-6 py-3 rounded-full text-sm hover:bg-white hover:text-indigo-700 transition">
+        <a href="mailto:<?= htmlspecialchars($gym['email']) ?>" class="border-2 border-white text-white font-bold px-6 py-3 rounded-full text-sm hover:bg-white hover:text-indigo-700 transition">
           <i class="fa fa-envelope mr-2"></i><?= htmlspecialchars($gym['email']) ?>
         </a>
       <?php endif; ?>
     </div>
   </div>
-
-  <p class="text-center text-gray-400 text-xs mt-8">
-    Powered by <strong class="text-indigo-600">GymCircle</strong> — Smart Gym Management
-  </p>
+  <p class="text-center text-gray-400 text-xs mt-8">Powered by <strong class="text-indigo-600">GymCircle</strong></p>
 </div>
 
 <!-- Lightbox -->
-<div id="lightbox" onclick="closeLightbox()"
-     class="fixed inset-0 bg-black bg-opacity-90 z-50 hidden items-center justify-center p-4 flex">
+<div id="lb" onclick="closeLB()" style="display:none" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
   <img id="lb_img" src="" class="max-h-screen max-w-full rounded-xl shadow-2xl">
 </div>
 
 <!-- Enquiry Modal -->
-<div id="modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4 flex">
+<div id="modal" style="display:none" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
-    <h3 class="text-xl font-bold text-gray-800 mb-1">Join — <span id="modal_plan" class="text-indigo-600"></span></h3>
+    <h3 class="text-xl font-bold text-gray-800 mb-1">Join — <span id="mplan" class="text-indigo-600"></span></h3>
     <p class="text-gray-500 text-sm mb-5">Fill your details and we'll contact you!</p>
     <div class="space-y-3">
-      <input id="m_name"  type="text"  placeholder="Full Name *"      class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
-      <input id="m_phone" type="tel"   placeholder="Phone Number *"   class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
-      <input id="m_email" type="email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+      <input id="mn" type="text" placeholder="Full Name *" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+      <input id="mp" type="tel" placeholder="Phone Number *" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
+      <input id="me" type="email" placeholder="Email (optional)" class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400">
     </div>
-    <div id="modal_ok" class="hidden bg-green-50 text-green-700 px-4 py-3 rounded-lg mt-4 text-sm"></div>
+    <div id="mok" style="display:none" class="bg-green-50 text-green-700 px-4 py-3 rounded-lg mt-4 text-sm"></div>
     <div class="flex gap-3 mt-5">
-      <button onclick="submitEnquiry()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm">
-        <i class="fa fa-paper-plane mr-1"></i> Send Enquiry
-      </button>
-      <button onclick="closeModal()" class="border border-gray-300 px-5 py-3 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+      <button onclick="submit()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm"><i class="fa fa-paper-plane mr-1"></i>Send Enquiry</button>
+      <button onclick="closeModal()" class="border border-gray-300 px-5 py-3 rounded-xl text-sm text-gray-600">Cancel</button>
     </div>
   </div>
 </div>
 
 <script>
-function openLightbox(src){document.getElementById('lb_img').src=src;document.getElementById('lightbox').style.display='flex';}
-function closeLightbox(){document.getElementById('lightbox').style.display='none';}
-function showModal(plan,price,dur){
-  document.getElementById('modal_plan').textContent=plan+' (₹'+price+' / '+dur+')';
-  document.getElementById('modal').style.display='flex';
-  document.getElementById('modal_ok').classList.add('hidden');
-  ['m_name','m_phone','m_email'].forEach(id=>document.getElementById(id).value='');
-}
+function openLB(s){document.getElementById('lb_img').src=s;document.getElementById('lb').style.display='flex';}
+function closeLB(){document.getElementById('lb').style.display='none';}
+function showModal(p,pr,d){document.getElementById('mplan').textContent=p+' (₹'+pr+' / '+d+')';document.getElementById('modal').style.display='flex';document.getElementById('mok').style.display='none';['mn','mp','me'].forEach(id=>document.getElementById(id).value='');}
 function closeModal(){document.getElementById('modal').style.display='none';}
-function submitEnquiry(){
-  const name=document.getElementById('m_name').value.trim();
-  const phone=document.getElementById('m_phone').value.trim();
-  if(!name||!phone){alert('Please enter name and phone.');return;}
-  const el=document.getElementById('modal_ok');
-  el.textContent='✅ Thank you '+name+'! We will contact you at '+phone+' soon.';
-  el.classList.remove('hidden');
+function submit(){
+  const n=document.getElementById('mn').value.trim(),p=document.getElementById('mp').value.trim();
+  if(!n||!p){alert('Please enter name and phone.');return;}
+  const el=document.getElementById('mok');el.textContent='✅ Thank you '+n+'! We will contact you at '+p+' soon.';el.style.display='block';
   setTimeout(closeModal,3000);
 }
-document.getElementById('lightbox').style.display='none';
-document.getElementById('modal').style.display='none';
 </script>
 </body>
 </html>

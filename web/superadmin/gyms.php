@@ -3,7 +3,7 @@ require_once __DIR__ . '/../layout/header.php';
 require_roles(['SUPER_ADMIN']);
 
 $gyms_res = api_request('GET', '/admin/gyms');
-$gyms = $gyms_res['data'] ?? [];
+$gyms = array_values($gyms_res['data'] ?? []);
 ?>
 
 <div class="flex justify-between items-center mb-6">

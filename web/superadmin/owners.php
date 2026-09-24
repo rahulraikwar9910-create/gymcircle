@@ -4,7 +4,7 @@ require_roles(['SUPER_ADMIN']);
 
 // Fetch all gyms & their owners from admin/gyms endpoint
 $gyms_res = api_request('GET', '/admin/gyms');
-$gyms = $gyms_res['data'] ?? [];
+$gyms = array_values($gyms_res['data'] ?? []);
 ?>
 
 <div class="flex justify-between items-center mb-6">

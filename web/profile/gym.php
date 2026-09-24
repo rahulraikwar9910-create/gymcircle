@@ -12,6 +12,15 @@ $gym_slug = $gym['slug'] ?? 'gym';
 $upload_dir = __DIR__ . '/../uploads/' . $gym_slug . '/';
 if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
 
+// Auto-save gym_meta.json so public page can find gym by slug
+file_put_contents($upload_dir . 'gym_meta.json', json_encode([
+    'gym_id'   => $gym_id,
+    'gym_name' => $gym['name'] ?? '',
+    'slug'     => $gym_slug,
+    'saved_at' => date('c'),
+]));
+
+
 $success = $error = '';
 
 // Handle gym info update
