@@ -85,8 +85,8 @@ if (isset($_SESSION['access_token'])) {
       </div>
       <!-- Trust Badges -->
       <div class="flex flex-wrap gap-5 text-sm text-gray-400">
-        <span><i class="fa fa-check text-green-400 mr-1.5"></i>Free to start</span>
-        <span><i class="fa fa-check text-green-400 mr-1.5"></i>No credit card needed</span>
+        <span><i class="fa fa-check text-green-400 mr-1.5"></i>Free to join — No monthly fees</span>
+        <span><i class="fa fa-check text-green-400 mr-1.5"></i>Only ₹10 per fee collected</span>
         <span><i class="fa fa-check text-green-400 mr-1.5"></i>Setup in 2 minutes</span>
       </div>
     </div>
@@ -290,42 +290,91 @@ if (isset($_SESSION['access_token'])) {
 <section id="pricing" class="py-20 bg-white">
   <div class="max-w-5xl mx-auto px-6">
     <div class="text-center mb-14">
-      <p class="text-indigo-600 text-sm font-bold uppercase tracking-wide mb-2">Simple Pricing</p>
-      <h2 class="text-4xl font-extrabold text-gray-900">Start Free, Grow With Us</h2>
-      <p class="text-gray-500 mt-3">No hidden fees. No credit card required to start.</p>
+      <p class="text-indigo-600 text-sm font-bold uppercase tracking-wide mb-2">Simple & Fair Pricing</p>
+      <h2 class="text-4xl font-extrabold text-gray-900">Free Platform. Pay Only When You Earn.</h2>
+      <p class="text-gray-500 mt-3 text-lg">No monthly subscription. No hidden charges. Only ₹10 per fee collected.</p>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <?php
-      $plans = [
-        ['name'=>'Starter','price'=>'Free','period'=>'forever','color'=>'border-gray-200','btn'=>'bg-gray-800 hover:bg-gray-900',
-         'features'=>['1 Gym Location','Up to 100 Members','Basic Attendance','Fee Collection','Public Gym Page'],'popular'=>false],
-        ['name'=>'Growth','price'=>'₹999','period'=>'per month','color'=>'border-indigo-500','btn'=>'bg-indigo-600 hover:bg-indigo-700',
-         'features'=>['3 Gym Locations','Unlimited Members','Advanced Reports','Trainer Profiles','Priority Support','Custom Branding'],'popular'=>true],
-        ['name'=>'Enterprise','price'=>'Custom','period'=>'contact us','color'=>'border-purple-300','btn'=>'bg-purple-600 hover:bg-purple-700',
-         'features'=>['Unlimited Gyms','All Features','API Access','Dedicated Manager','SLA Guarantee','White Label'],'popular'=>false],
-      ];
-      foreach ($plans as $p): ?>
-        <div class="rounded-2xl border-2 <?= $p['color'] ?> p-7 relative <?= $p['popular']?'shadow-xl':'' ?>">
-          <?php if ($p['popular']): ?>
-            <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-bold px-4 py-1 rounded-full">⭐ Most Popular</div>
-          <?php endif; ?>
-          <h3 class="font-bold text-gray-800 text-xl mb-1"><?= $p['name'] ?></h3>
-          <div class="flex items-baseline gap-1 mb-1">
-            <span class="text-4xl font-extrabold text-gray-900"><?= $p['price'] ?></span>
-          </div>
-          <p class="text-gray-400 text-xs mb-6"><?= $p['period'] ?></p>
-          <ul class="space-y-2.5 mb-8">
-            <?php foreach ($p['features'] as $f): ?>
-              <li class="flex items-center gap-2 text-sm text-gray-600">
-                <i class="fa fa-check-circle text-green-500 flex-shrink-0"></i><?= $f ?>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-          <a href="/register.php" class="block text-center <?= $p['btn'] ?> text-white font-bold py-3 rounded-xl text-sm transition">
-            Get Started
-          </a>
+
+    <!-- Main Pricing Card -->
+    <div class="max-w-3xl mx-auto">
+      <div class="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-10 text-white text-center shadow-2xl mb-8">
+        <div class="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-2 text-sm font-semibold mb-6">
+          <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span> Active Plan for All Gyms
         </div>
-      <?php endforeach; ?>
+        <h3 class="text-5xl font-extrabold mb-2">₹10</h3>
+        <p class="text-indigo-200 text-lg mb-8">per fee collection transaction</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div class="bg-white/10 rounded-2xl p-4">
+            <i class="fa fa-building text-2xl mb-2 block"></i>
+            <p class="font-bold text-base">Platform: Free</p>
+            <p class="text-indigo-200 text-xs mt-1">Registration, dashboard, all features</p>
+          </div>
+          <div class="bg-white/10 rounded-2xl p-4">
+            <i class="fa fa-users text-2xl mb-2 block"></i>
+            <p class="font-bold text-base">Members: Free</p>
+            <p class="text-indigo-200 text-xs mt-1">Add unlimited members, trainers</p>
+          </div>
+          <div class="bg-white/20 rounded-2xl p-4 border-2 border-yellow-400/50">
+            <i class="fa fa-indian-rupee-sign text-2xl mb-2 block text-yellow-300"></i>
+            <p class="font-bold text-base text-yellow-300">Fee Collection: ₹10</p>
+            <p class="text-indigo-200 text-xs mt-1">Only when you collect from a member</p>
+          </div>
+        </div>
+        <a href="/register.php"
+           class="inline-block bg-white text-indigo-700 font-extrabold px-12 py-4 rounded-2xl text-lg hover:bg-indigo-50 transition shadow-lg">
+          <i class="fa fa-rocket mr-2"></i> Start Free — No Card Needed
+        </a>
+      </div>
+
+      <!-- Example Calculation -->
+      <div class="bg-gray-50 rounded-2xl p-7 border border-gray-200">
+        <h4 class="font-bold text-gray-800 text-lg mb-5 text-center"><i class="fa fa-calculator text-indigo-500 mr-2"></i>Example Calculation</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+          <div class="bg-white rounded-xl p-4 shadow-sm">
+            <p class="text-3xl font-extrabold text-indigo-600">50</p>
+            <p class="text-gray-500 text-sm mt-1">Members pay fees/month</p>
+            <p class="text-xs text-gray-400 mt-1 font-medium">₹500/mo average fee</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm">
+            <p class="text-3xl font-extrabold text-green-600">₹25,000</p>
+            <p class="text-gray-500 text-sm mt-1">You collect from members</p>
+            <p class="text-xs text-gray-400 mt-1 font-medium">Total gym revenue</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 shadow-sm border-2 border-indigo-100">
+            <p class="text-3xl font-extrabold text-purple-600">₹500</p>
+            <p class="text-gray-500 text-sm mt-1">Platform fee to GymCircle</p>
+            <p class="text-xs text-indigo-500 mt-1 font-medium">50 × ₹10 = ₹500 only</p>
+          </div>
+        </div>
+        <div class="mt-5 text-center bg-green-50 rounded-xl py-3 px-5 border border-green-200">
+          <p class="text-green-700 font-semibold text-sm">
+            <i class="fa fa-check-circle mr-1"></i>
+            You keep <strong>₹24,500</strong> — Pay only <strong>₹500 (2%)</strong> for full platform access
+          </p>
+        </div>
+      </div>
+
+      <!-- What's Always Free -->
+      <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <?php
+        $free_items = [
+          ['icon'=>'fa-building','text'=>'Gym Registration'],
+          ['icon'=>'fa-users','text'=>'Member Management'],
+          ['icon'=>'fa-clipboard-check','text'=>'Attendance Tracking'],
+          ['icon'=>'fa-id-card','text'=>'Membership Plans'],
+          ['icon'=>'fa-dumbbell','text'=>'Trainer Profiles'],
+          ['icon'=>'fa-globe','text'=>'Public Gym Page'],
+          ['icon'=>'fa-images','text'=>'Photo Gallery'],
+          ['icon'=>'fa-gauge','text'=>'Live Dashboard'],
+        ];
+        foreach ($free_items as $it): ?>
+          <div class="bg-white border border-gray-200 rounded-xl p-3 text-center shadow-sm">
+            <i class="fa <?= $it['icon'] ?> text-indigo-500 text-lg mb-1.5 block"></i>
+            <p class="text-xs font-medium text-gray-700"><?= $it['text'] ?></p>
+            <p class="text-xs text-green-600 font-bold mt-0.5">FREE</p>
+          </div>
+        <?php endforeach; ?>
+      </div>
     </div>
   </div>
 </section>
