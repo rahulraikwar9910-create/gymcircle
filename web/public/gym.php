@@ -30,8 +30,8 @@ if (!$gym_id && $slug) {
             }
         }
         // Restore session
-        $old_token ? ($_SESSION['access_token'] = $old_token) : unset($_SESSION['access_token']);
-        $old_gym   ? ($_SESSION['gym_id']        = $old_gym)   : unset($_SESSION['gym_id']);
+        if ($old_token) { $_SESSION['access_token'] = $old_token; } else { unset($_SESSION['access_token']); }
+        if ($old_gym)   { $_SESSION['gym_id']        = $old_gym;  } else { unset($_SESSION['gym_id']); }
 
         // Write cache so next time it's instant
         if ($gym_id) {
@@ -61,7 +61,8 @@ $gym     = $gym_res['data'] ?? [];
 $old_gym = $_SESSION['gym_id'] ?? null;
 $_SESSION['gym_id'] = $gym_id;
 $plans = api_request('GET', '/memberships/plans')['data'] ?? [];
-$old_gym ? ($_SESSION['gym_id'] = $old_gym) : unset($_SESSION['gym_id']);
+if ($old_gym) { $_SESSION['gym_id'] = $old_gym; } else { unset($_SESSION['gym_id']); }
+
 
 // Load images
 $images = [];
