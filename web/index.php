@@ -100,6 +100,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <p><strong>Gym Owner:</strong> owner_a@gymcircle.com / password123</p>
       <p class="mt-1"><strong>Super Admin:</strong> superadmin@gymcircle.com / admin123</p>
     </div>
+
+    <div class="mt-4 text-center">
+      <p class="text-sm text-gray-500">New gym owner?
+        <a href="/register.php" class="text-indigo-600 hover:underline font-semibold">Register your gym →</a>
+      </p>
+    </div>
   </div>
 </body>
 </html>

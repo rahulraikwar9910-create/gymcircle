@@ -9,6 +9,9 @@ $gyms = array_values($gyms_res['data'] ?? []);
 
 <div class="flex justify-between items-center mb-6">
   <h2 class="text-2xl font-bold text-gray-800"><i class="fa fa-users-gear text-indigo-500 mr-2"></i>Gym Owners</h2>
+  <a href="/superadmin/add_owner.php" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+    <i class="fa fa-plus mr-1"></i> Add Gym Owner
+  </a>
 </div>
 
 <div class="bg-white rounded-xl shadow-sm overflow-hidden">
